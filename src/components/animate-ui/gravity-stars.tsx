@@ -41,11 +41,11 @@ function GravityStarsBackground({
   starsOpacity = 0.85,
   glowIntensity = 15,
   glowAnimation = 'ease',
-  movementSpeed = 1.8,
+  movementSpeed = 2.8,
   mouseInfluence = 100,
   mouseGravity = 'repel',
   gravityStrength = 75,
-  starsInteraction = false,
+  starsInteraction = true,
   starsInteractionType = 'bounce',
   className,
   ...props

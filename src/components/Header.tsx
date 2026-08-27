@@ -7,7 +7,7 @@ import { Button } from "./ui/button";
 
 const Header = () => {
   return (
-    <nav className="absolute fixed w-full py-8 bg-linear-to-r h-14 px-10 flex justify-between items-center from-slate-900/30 via-purple-950/60">
+    <nav className="relative z-10 fixed w-full py-8 bg-linear-to-r h-14 px-10 flex justify-between items-center from-slate-900/30 via-purple-950/60">
       <Link href={"/"}>
         <Image
           src={"/Header.png"}
