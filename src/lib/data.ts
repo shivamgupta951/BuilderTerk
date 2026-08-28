@@ -6,7 +6,6 @@ export const SUGGESTIONS = [
   "A weather app with animated icons",
   "A personal finance tracker",
   "A recipe finder with filters",
-  "A pomodoro timer with tasks",
 ];
 
 export const FEATURES = [
