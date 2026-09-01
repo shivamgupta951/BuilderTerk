@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import React from "react";
 import { Button } from "./ui/button";
+import PricingModal from "./PricingModal";
 
 const Header = () => {
   return (
@@ -34,9 +35,11 @@ const Header = () => {
             <Book className="mx-2" />
             About
           </Link>
-          <span className="text-slate-200 rounded-2xl border-2 p-2 bg-purple-950/40">
-            Credits 3 / 10
-          </span>
+          <PricingModal>
+            <span className="text-slate-200 rounded-2xl border-2 p-2 bg-purple-950/40">
+              Credits 3 / 10
+            </span>
+          </PricingModal>
           <UserButton />
         </Show>
 
@@ -54,8 +57,12 @@ const Header = () => {
             </Button>
           </SignInButton>
           <SignUpButton mode="modal">
-            <Button variant={"destructive"} size="sm" className="text-slate-400 text-xl bg-pink-950/50 p-3 py-5">
-              Get Started <ArrowRight/>
+            <Button
+              variant={"destructive"}
+              size="sm"
+              className="text-slate-400 text-xl bg-pink-950/50 p-3 py-5"
+            >
+              Get Started <ArrowRight />
             </Button>
           </SignUpButton>
         </Show>

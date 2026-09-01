@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { FEATURES, PLACEHOLDERS, STEPS, SUGGESTIONS } from "@/lib/data";
-import { SignInButton, useUser } from "@clerk/nextjs";
-import { MoveRight, Spade } from "lucide-react";
+import { PricingTable, SignInButton, useUser } from "@clerk/nextjs";
+import { ChevronRight, MessageCircle, MoveRight, Spade } from "lucide-react";
 import { useState } from "react";
 
 export default function Home() {
@@ -286,7 +286,7 @@ export default function Home() {
       </section>
 
       {/* Pricing section page 5! */}
-      <section className="min-h-screen flex items-center bg-linear-to-t from-[#080325] via-black to-black flex-col ">
+      <section className="min-h-[1300px] relative overflow-hidden flex items-center bg-linear-to-t from-[#080325] via-black to-black flex-col">
         <div className="flex justify-center items-center h-[20%]">
           <div className="w-8 h-[2px]  bg-blue-800 mx-2"></div>
           <div className="text-yellow-300 tracking-tight text-xl">
@@ -294,19 +294,70 @@ export default function Home() {
           </div>
           <div className="w-8 h-[2px] bg-blue-800 mx-2"></div>
         </div>
-        <div className="text-4xl mt-7 text-center">
+        <div className="text-4xl mt-3 text-center">
           <div>Start free</div>
           <div className="text-5xl text-blue-400">scale when ready.</div>
         </div>
         <p className="text-gray-400 mt-4">
           No Credit points required. Upgrade or downgrade anytime.
         </p>
-        <div className="max-w-3xl mx-auto">
-          {/* Pricing Area */}
+        <div className="max-w-5xl mx-auto min-w-300 mb-60 mt-10">
+          <PricingTable
+            checkoutProps={{
+              appearance: {
+                elements: {
+                  drawerRoot: {
+                    zIndex: 2000,
+                  },
+                },
+              },
+            }}
+          />
         </div>
+        <div className="w-[50%] h-100 relative">
+          <div className="absolute inset-0 z-0 pointer-events-none">
+            <GravityStarsBackground starsCount={50} starsSize={2} />
+          </div>
 
-        <div></div>
+          <div className="absolute z-10 flex justify-center flex-col items-center h-full w-full">
+            <div className="text-6xl mt-7 text-center">
+              <div className="text-green-300">Start building</div>
+              <div className="text-7xl text-indigo-600">for free.</div>
+            </div>
+            <p className="text-gray-400 w-[50%] text-center mt-2 mb-4">
+              Get 10 free generations on sign up. No credit points required.
+              Upgrade when you're ready.
+            </p>
+            <SignInButton mode="modal">
+              <Button size="lg" className="rounded-2xl">
+                Get Started free
+                <ChevronRight />
+              </Button>
+            </SignInButton>
+          </div>
+        </div>
       </section>
+
+      {/* footer */}
+      <footer className="relative z-10 border-t border-white/7 py-12 mx-auto px-6 flex flex-wrap items-center justify-center text-stone-400">
+        Made with 💟 by Shivam!
+        <a
+          href="https://github.com/shivamgupta951"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mx-6 flex border w-40 rounded-md p-1 px-2 text-[75%] bg-yellow-500/10 justify-center items-center cursor-pointer hover:scale-90 transition-all transform duration-500 ease-in-out"
+        >
+          <Spade className="mx-2" size={18} /> shivamgupta951{" "}
+        </a>{" "}
+        <a
+          href="https://www.instagram.com/shivam_gupta951/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex border w-40 rounded-md p-1 px-2 text-[75%] bg-yellow-500/10 justify-center items-center cursor-pointer hover:scale-90 transition-all transform duration-500 ease-in-out"
+        >
+          <MessageCircle className="mx-2" size={18} /> shivam_gupta951{" "}
+        </a>{" "}
+      </footer>
     </main>
   );
 }
