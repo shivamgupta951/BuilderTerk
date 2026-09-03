@@ -6,12 +6,12 @@ export const PLANS = {
   },
   starter: {
     label: "Starter",
-    credits: 50,
+    credits: 30,
     price: 9,
   },
   pro: {
     label: "Pro",
-    credits: 150,
+    credits: 100,
     price: 29,
   },
 } as const;

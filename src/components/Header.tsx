@@ -5,8 +5,12 @@ import Link from "next/link";
 import React from "react";
 import { Button } from "./ui/button";
 import PricingModal from "./PricingModal";
+import { checkUser } from "@/lib/checkUser";
+import { PLANS } from "@/lib/constants";
+import { Plan } from "@/types/plans";
 
-const Header = () => {
+const Header = async () => {
+  const user = await checkUser();
   return (
     <nav className="relative z-10 fixed w-full py-8 bg-linear-to-r h-14 px-10 flex justify-between items-center from-slate-900/30 via-purple-950/60">
       <Link href={"/"}>
@@ -35,11 +39,13 @@ const Header = () => {
             <Book className="mx-2" />
             About
           </Link>
-          <PricingModal>
-            <span className="text-slate-200 rounded-2xl border-2 p-2 bg-purple-950/40">
-              Credits 3 / 10
-            </span>
-          </PricingModal>
+          {user && (
+            <PricingModal>
+              <span className="text-slate-200 rounded-2xl border-2 p-2 bg-purple-950/40">
+                Credits {user.credits} / {PLANS[user?.plan as Plan].credits}
+              </span>
+            </PricingModal>
+          )}
           <UserButton />
         </Show>
 

@@ -99,7 +99,7 @@ export default function Home() {
           <div className="w-full flex flex-wrap justify-around text-sm p-5">
             {SUGGESTIONS.map((e) => (
               <button
-                className=" text-[80%] border p-2 rounded-2xl my-2 transition-all transform duration-700 ease-in-out hover:scale-105 px-4 hover:bg-linear-to-t hover:from-gray-800 hover:cursor-pointer border-yellow-200 hover:via-transparent "
+                className=" text-[110%] border p-2 rounded-2xl my-2 transition-all transform duration-700 ease-in-out hover:scale-105 px-4 hover:bg-linear-to-t hover:from-gray-800 hover:cursor-pointer border-yellow-200 hover:via-transparent "
                 key={e}
                 onClick={() => handleSuggestion(e)}
               >
