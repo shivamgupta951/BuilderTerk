@@ -8,15 +8,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { FEATURES, PLACEHOLDERS, STEPS, SUGGESTIONS } from "@/lib/data";
 import { PricingTable, SignInButton, useUser } from "@clerk/nextjs";
 import { ChevronRight, MessageCircle, MoveRight, Spade } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function Home() {
+  const router = useRouter();
   const [focusActive, setfocusActive] = useState(false);
   const [prompt, setPrompt] = useState("");
-  const { isSignedIn, isLoaded, user } = useUser();
+  const { isSignedIn } = useUser();
   const handleSuggestion = (s: string) => {
     setPrompt(s);
     setfocusActive(true);
+  };
+  const handleSubmit = () => {
+    if (!prompt.trim() || !isSignedIn) return;
+    router.push(`/workspace?prompt=${encodeURIComponent(prompt.trim())}`);
   };
 
   return (
@@ -73,6 +79,7 @@ export default function Home() {
             </div>
             {isSignedIn ? (
               <Button
+                onClick={handleSubmit}
                 disabled={!prompt.trim()}
                 className={`${prompt.trim() ? "" : "text-gray-600"}`}
               >
@@ -118,7 +125,7 @@ export default function Home() {
       </div>
 
       {/* 2nd section page! */}
-      <section className="min-h-screen flex justify-center items-center bg-linear-to-b from-[#080325] via-black to-black">
+      <section id="features" className="min-h-screen flex justify-center items-center bg-linear-to-b from-[#080325] via-black to-black">
         <div className="transition-all transform duration-700 ease-in-out hover:scale-105 border w-[70%] relative bg-[#02011f] rounded-xl">
           <div className="h-14 flex justify-between items-center px-4 border-b-2">
             <div className="flex">
@@ -145,7 +152,7 @@ export default function Home() {
                     </div>
                     <div className="h-[28%] mt-2 w-full  flex justify-start items-center px-4">
                       <div className="rounded-tl-none text-xs p-1 border px-2 rounded-md w-[70%] tracking-wider text-gray-300 bg-gray-900">
-                        I'll create a task manager with a Kanban board. Setting
+                        I&apos;ll create a task manager with a Kanban board. Setting
                         up the project...
                       </div>
                     </div>
@@ -326,7 +333,7 @@ export default function Home() {
             </div>
             <p className="text-gray-400 w-[50%] text-center mt-2 mb-4">
               Get 10 free generations on sign up. No credit points required.
-              Upgrade when you're ready.
+              Upgrade when you&apos;re ready.
             </p>
             <SignInButton mode="modal">
               <Button size="lg" className="rounded-2xl">

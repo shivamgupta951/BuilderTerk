@@ -284,16 +284,6 @@ function GravityStarsBackground({
     [dpr, glowIntensity, readColor],
   );
 
-  const animate = React.useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    updateStars();
-    drawStars(ctx);
-    animRef.current = requestAnimationFrame(animate);
-  }, [updateStars, drawStars]);
-
   React.useEffect(() => {
     resizeCanvas();
     const container = containerRef.current;
@@ -336,12 +326,20 @@ function GravityStarsBackground({
 
   React.useEffect(() => {
     if (animRef.current) cancelAnimationFrame(animRef.current);
+    const animate = () => {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (!ctx) return;
+      updateStars();
+      drawStars(ctx);
+      animRef.current = requestAnimationFrame(animate);
+    };
     animRef.current = requestAnimationFrame(animate);
     return () => {
       if (animRef.current) cancelAnimationFrame(animRef.current);
       animRef.current = null;
     };
-  }, [animate]);
+  }, [updateStars, drawStars]);
 
   return (
     <div

@@ -1,5 +1,5 @@
 import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
-import { ArrowRight, ArrowRightCircle, Book, BoxesIcon } from "lucide-react";
+import { ArrowRight, Book, BoxesIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import React from "react";
@@ -11,8 +11,10 @@ import { Plan } from "@/types/plans";
 
 const Header = async () => {
   const user = await checkUser();
+  const plan = PLANS[user?.plan as Plan] ?? PLANS.free;
+
   return (
-    <nav className="relative z-10 fixed w-full py-8 bg-linear-to-r h-14 px-10 flex justify-between items-center from-slate-900/30 via-purple-950/60">
+    <nav className="fixed inset-x-0 top-0 z-50 flex h-14 w-full items-center justify-between bg-linear-to-r from-slate-900/30 via-purple-950/60 px-10 py-8">
       <Link href={"/"}>
         <Image
           src={"/Header.png"}
@@ -26,14 +28,14 @@ const Header = async () => {
       <div className="flex justify-center items-center space-x-7 bg-linear-to-l p-2 px-10">
         <Show when="signed-in">
           <Link
-            href={"/"}
+            href={"/project"}
             className="flex space-x-5 justify-center items-center text-slate-400 border-b-2 p-1 hover:scale-90 transition transform ease-in-out duration-500"
           >
             <BoxesIcon className="mx-2" />
             Projects
           </Link>
           <Link
-            href={"/"}
+            href={"/#features"}
             className="flex space-x-5 justify-center items-center text-slate-400 border-b-2 p-1 hover:scale-90 transition transform ease-in-out duration-500"
           >
             <Book className="mx-2" />
@@ -42,7 +44,7 @@ const Header = async () => {
           {user && (
             <PricingModal>
               <span className="text-slate-200 rounded-2xl border-2 p-2 bg-purple-950/40">
-                Credits {user.credits} / {PLANS[user?.plan as Plan].credits}
+                Credits {user.credits} / {plan.credits}
               </span>
             </PricingModal>
           )}
@@ -51,7 +53,7 @@ const Header = async () => {
 
         <Show when="signed-out">
           <Link
-            href={"/"}
+            href={"/#features"}
             className="flex space-x-5 justify-center items-center text-slate-400 border-b-2 p-1 hover:scale-90 transition transform ease-in-out duration-500"
           >
             <Book className="mx-2" />
