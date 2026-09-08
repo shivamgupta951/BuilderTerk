@@ -1,20 +1,6 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
 
-const isProtectedRoute = createRouteMatcher([
-  "/workspace(.*)",
-  "/project(.*)",
-]);
-
-export default clerkMiddleware(async(auth,req)=>{
-  const {userId} = await auth();
-  if(!userId && isProtectedRoute(req))
-  {
-    const {redirectToSignIn} = await auth();
-    return redirectToSignIn();
-  }
-  return NextResponse.next();
-});
+export default clerkMiddleware();
 
 export const config = {
   matcher: [

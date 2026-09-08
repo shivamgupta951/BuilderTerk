@@ -6,6 +6,11 @@ import { CREDIT_COST_PER_GENERATION } from "@/lib/constants";
 import type { Message, FileData } from "@/types/workspace";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+const GEMINI_MODEL =
+  process.env.GEMINI_MODEL ?? "gemini-3.6-flash";
+
+const GEMINI_FALLBACK_MODEL =
+  "gemini-3.1-flash-lite";
 
 // ─── SSE helper ───────────────────────────────────────────────────────────────
 
@@ -27,6 +32,23 @@ function extractThoughtLabel(text: string): string | null {
   if (sentence.length >= 8 && sentence.length <= 80) return sentence;
 
   return null;
+}
+
+function parseJsonObject<T>(text: string): T {
+  const trimmed = text.trim();
+  const withoutFence = trimmed
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+
+  try {
+    return JSON.parse(withoutFence) as T;
+  } catch {
+    const start = withoutFence.indexOf("{");
+    const end = withoutFence.lastIndexOf("}");
+    if (start === -1 || end <= start) throw new Error("Invalid JSON object");
+    return JSON.parse(withoutFence.slice(start, end + 1)) as T;
+  }
 }
 
 // ─── npm validation ───────────────────────────────────────────────────────────
@@ -181,43 +203,68 @@ export async function POST(request: NextRequest) {
       try {
         const contents = buildContents(messages, fileData);
 
-        const geminiStream = await ai.models.generateContentStream({
-          model: "gemini-2.5-flash",
-          contents,
-          config: {
-            systemInstruction: SYSTEM_PROMPT,
-            temperature: 0.7,
-            responseMimeType: "application/json",
-            thinkingConfig: {
-              includeThoughts: true,
-            },
-          },
-        });
+        let lastGeminiError: unknown;
+        const modelsToTry = [GEMINI_MODEL, GEMINI_FALLBACK_MODEL].filter(
+          (model, index, models) => models.indexOf(model) === index
+        );
+        let accumulated = "";
+        let completed = false;
 
-        let accumulated = ""; // final JSON output
-        let lastEmitTime = 0; // throttle thought emissions
+        for (let attempt = 0; attempt < 4 && !completed; attempt++) {
+          const model = modelsToTry[Math.min(attempt, modelsToTry.length - 1)];
+          accumulated = "";
+          let lastEmitTime = 0;
 
-        for await (const chunk of geminiStream) {
-          const parts = chunk.candidates?.[0]?.content?.parts ?? [];
+          try {
+            const geminiStream = await ai.models.generateContentStream({
+              model,
+              contents,
+              config: {
+                systemInstruction: SYSTEM_PROMPT,
+                temperature: 0.7,
+                responseMimeType: "application/json",
+                thinkingConfig: {
+                  includeThoughts: true,
+                },
+              },
+            });
 
-          for (const part of parts) {
-            if (!part.text) continue;
+            for await (const chunk of geminiStream) {
+              const parts = chunk.candidates?.[0]?.content?.parts ?? [];
 
-            if (part.thought) {
-              // Extract just the short label — not the full wall of text
-              const now = Date.now();
-              if (now - lastEmitTime > 600) {
-                const label = extractThoughtLabel(part.text);
-                if (label) {
-                  enqueue(sseEvent("status", { message: label }));
-                  lastEmitTime = now;
+              for (const part of parts) {
+                if (!part.text) continue;
+
+                if (part.thought) {
+                  const now = Date.now();
+                  if (now - lastEmitTime > 600) {
+                    const label = extractThoughtLabel(part.text);
+                    if (label) {
+                      enqueue(sseEvent("status", { message: label }));
+                      lastEmitTime = now;
+                    }
+                  }
+                } else {
+                  accumulated += part.text;
                 }
               }
-            } else {
-              // Actual JSON output
-              accumulated += part.text;
             }
+
+            completed = true;
+          } catch (error) {
+            lastGeminiError = error;
+            const status = (error as { status?: number; code?: number }).status ??
+              (error as { code?: number }).code;
+
+            if (status !== 503 || attempt === 3) throw error;
+            await new Promise((resolve) =>
+              setTimeout(resolve, 1000 * (attempt + 1))
+            );
           }
+        }
+
+        if (!completed) {
+          throw lastGeminiError ?? new Error("Gemini did not return a response.");
         }
 
         // ── Parse the complete JSON response ──────────────────────────────────
@@ -230,7 +277,7 @@ export async function POST(request: NextRequest) {
         };
 
         try {
-          parsed = JSON.parse(accumulated);
+          parsed = parseJsonObject<typeof parsed>(accumulated);
         } catch {
           enqueue(
             sseEvent("error", {

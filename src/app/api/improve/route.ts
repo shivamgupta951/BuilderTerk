@@ -17,6 +17,23 @@ Rules:
 - Preserve existing functionality unless the request asks to change it.
 - Return complete file contents, never patches or markdown.`;
 
+function parseJsonObject<T>(text: string): T {
+  const trimmed = text.trim();
+  const withoutFence = trimmed
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+
+  try {
+    return JSON.parse(withoutFence) as T;
+  } catch {
+    const start = withoutFence.indexOf("{");
+    const end = withoutFence.lastIndexOf("}");
+    if (start === -1 || end <= start) throw new Error("Invalid JSON object");
+    return JSON.parse(withoutFence.slice(start, end + 1)) as T;
+  }
+}
+
 function sseEvent(type: string, payload: object): string {
   return `data: ${JSON.stringify({ type, ...payload })}\n\n`;
 }
@@ -61,7 +78,7 @@ export async function POST(request: NextRequest) {
 
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
         const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: process.env.GEMINI_MODEL ?? "gemini-3.6-flash",
           contents: `User request:\n${body.userRequest}\n\nCurrent files:\n${JSON.stringify(body.fileData.files, null, 2)}`,
           config: {
             systemInstruction: SYSTEM_PROMPT,
@@ -70,10 +87,10 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        const parsed = JSON.parse(response.text ?? "") as {
+        const parsed = parseJsonObject<{
           summary?: string;
           files?: FileData["files"];
-        };
+        }>(response.text ?? "");
         if (!parsed.files || typeof parsed.files !== "object") {
           throw new Error("AI response did not include valid files.");
         }

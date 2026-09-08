@@ -21,6 +21,7 @@ const Header = async () => {
           alt="logo"
           width={150}
           height={80}
+          style={{ height: "auto" }}
           className="rounded-md"
         />
       </Link>

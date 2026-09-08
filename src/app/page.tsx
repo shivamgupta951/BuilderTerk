@@ -66,7 +66,7 @@ export default function Home() {
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                // enter promt generation task here ~
+                handleSubmit();
               }
             }}
           />
