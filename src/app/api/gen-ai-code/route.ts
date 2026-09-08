@@ -12,6 +12,27 @@ const GEMINI_MODEL =
 const GEMINI_FALLBACK_MODEL =
   "gemini-3.1-flash-lite";
 
+const GENERATION_RESPONSE_SCHEMA = {
+  type: "object",
+  properties: {
+    assistantMessage: { type: "string" },
+    title: { type: "string" },
+    files: {
+      type: "object",
+      additionalProperties: {
+        type: "object",
+        properties: { code: { type: "string" } },
+        required: ["code"],
+      },
+    },
+    dependencies: {
+      type: "object",
+      additionalProperties: { type: "string" },
+    },
+  },
+  required: ["assistantMessage", "title", "files", "dependencies"],
+} as const;
+
 // ─── SSE helper ───────────────────────────────────────────────────────────────
 
 function sseEvent(type: string, payload: unknown): string {
@@ -104,7 +125,8 @@ RULES:
 7. Do not include react, react-dom, or tailwindcss in "dependencies" — they are always available.
 8. When modifying existing code, include ALL files (both changed and unchanged) in "files".
 9. Keep code clean, readable, and production-quality.
-10. If the user attaches an image, use it as a design reference and match the layout/style as closely as possible.`;
+10. Keep the response compact: include only files needed to run the app and avoid duplicate or placeholder files.
+11. If the user attaches an image, use it as a design reference and match the layout/style as closely as possible.`;
 
 // ─── Gemini contents builder ──────────────────────────────────────────────────
 
@@ -223,9 +245,8 @@ export async function POST(request: NextRequest) {
                 systemInstruction: SYSTEM_PROMPT,
                 temperature: 0.7,
                 responseMimeType: "application/json",
-                thinkingConfig: {
-                  includeThoughts: true,
-                },
+                responseJsonSchema: GENERATION_RESPONSE_SCHEMA,
+                maxOutputTokens: 32768,
               },
             });
 
