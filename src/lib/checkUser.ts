@@ -15,32 +15,56 @@ const getCurrentPlan = async (): Promise<Plan> => {
 export const checkUser = async () => {
   const user = await currentUser();
 
-  console.log("🔥 CLERK USER:", user?.id);
-  console.log("🔥 CLERK EMAIL:", user?.emailAddresses?.[0]?.emailAddress);
-
   if (!user) {
-    console.log("🔥 NO CLERK USER");
     return null;
   }
 
   try {
     const currentPlan = await getCurrentPlan();
 
-    const existing = await db.user.findUnique({
+    // 1. First find user by Clerk ID
+    let existing = await db.user.findUnique({
       where: {
         clerkId: user.id,
       },
     });
 
-    console.log("🔥 PRISMA USER:", existing?.id);
-    console.log("🔥 PRISMA CLERK ID:", existing?.clerkId);
+    // 2. If Clerk ID is not found, try email
+    //    This handles an existing Prisma user after
+    //    switching/recreating the Clerk environment.
+    if (!existing) {
+      const email = user.emailAddresses[0]?.emailAddress;
 
-    // ...rest of your existing code
+      if (email) {
+        existing = await db.user.findUnique({
+          where: {
+            email,
+          },
+        });
+
+        // 3. Existing DB user found by email.
+        //    Link it to the current Clerk account.
+        if (existing) {
+          existing = await db.user.update({
+            where: {
+              id: existing.id,
+            },
+            data: {
+              clerkId: user.id,
+              name: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim(),
+              imageUrl: user.imageUrl ?? "",
+            },
+          });
+        }
+      }
+    }
+
+    // 4. Existing user found
     if (existing) {
       if (existing.plan !== currentPlan) {
         return await db.user.update({
           where: {
-            clerkId: user.id,
+            id: existing.id,
           },
           data: {
             plan: currentPlan,
@@ -52,30 +76,17 @@ export const checkUser = async () => {
       return existing;
     }
 
-    try {
-      return await db.user.create({
-        data: {
-          clerkId: user.id,
-          name: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim(),
-          email: user.emailAddresses[0].emailAddress,
-          imageUrl: user.imageUrl ?? "",
-          credits: PLANS.free.credits,
-          plan: "free",
-        },
-      });
-    } catch (error: any) {
-      // Another request may have created the user
-      // between findUnique() and create().
-      if (error?.code === "P2002") {
-        return await db.user.findUnique({
-          where: {
-            clerkId: user.id,
-          },
-        });
-      }
-
-      throw error;
-    }
+    // 5. No existing user at all → create new user
+    return await db.user.create({
+      data: {
+        clerkId: user.id,
+        name: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim(),
+        email: user.emailAddresses[0].emailAddress,
+        imageUrl: user.imageUrl ?? "",
+        credits: PLANS.free.credits,
+        plan: "free",
+      },
+    });
   } catch (error) {
     console.error("🔥 CHECK USER ERROR:", error);
     throw error;
