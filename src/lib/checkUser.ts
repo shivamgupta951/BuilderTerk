@@ -15,7 +15,13 @@ const getCurrentPlan = async (): Promise<Plan> => {
 export const checkUser = async () => {
   const user = await currentUser();
 
-  if (!user) return null;
+  console.log("🔥 CLERK USER:", user?.id);
+  console.log("🔥 CLERK EMAIL:", user?.emailAddresses?.[0]?.emailAddress);
+
+  if (!user) {
+    console.log("🔥 NO CLERK USER");
+    return null;
+  }
 
   try {
     const currentPlan = await getCurrentPlan();
@@ -26,6 +32,10 @@ export const checkUser = async () => {
       },
     });
 
+    console.log("🔥 PRISMA USER:", existing?.id);
+    console.log("🔥 PRISMA CLERK ID:", existing?.clerkId);
+
+    // ...rest of your existing code
     if (existing) {
       if (existing.plan !== currentPlan) {
         return await db.user.update({
