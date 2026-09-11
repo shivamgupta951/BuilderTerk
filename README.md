@@ -1,5 +1,26 @@
 # 🤵 BuilderTerk
 
+
+[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-BuilderTerk-black?style=for-the-badge)](https://builder-terk.vercel.app/)
+
+## ✨ Live Preview
+
+<p align="center">
+  <a href="https://builder-terk.vercel.app/">
+    <img 
+      src="YOUR_SCREENSHOT_URL"
+      alt="BuilderTerk Live Preview"
+      width="900"
+    />
+  </a>
+</p>
+
+<p align="center">
+  <b>👉 Try BuilderTerk live</b>
+</p>
+
+
+
 ### AI-Powered Full-Stack App Builder with Live Preview, Code Generation & AI-Powered Improvements
 
 BuilderTerk is a full-stack AI application builder that allows users to describe an application in natural language and generate a working React application with AI.
