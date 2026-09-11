@@ -1,4 +1,4 @@
-# ⚡ BuilderTerk
+# 🤵 BuilderTerk
 
 ### AI-Powered Full-Stack App Builder with Live Preview, Code Generation & AI-Powered Improvements
 
