@@ -3,21 +3,6 @@
 
 [![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-BuilderTerk-black?style=for-the-badge)](https://builder-terk.vercel.app/)
 
-## ✨ Live Preview
-
-<p align="center">
-  <a href="https://builder-terk.vercel.app/">
-    <img 
-      src="YOUR_SCREENSHOT_URL"
-      alt="BuilderTerk Live Preview"
-      width="900"
-    />
-  </a>
-</p>
-
-<p align="center">
-  <b>👉 Try BuilderTerk live</b>
-</p>
 
 
 
