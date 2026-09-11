@@ -13,7 +13,12 @@ export async function getWorkspaceUser() {
 }
 
 export async function getWorkspaceById(id: string, userId: string) {
+  // Never trust an ID supplied by the page. Server actions can be invoked
+  // directly, so ownership must be checked against the authenticated user.
+  const user = await checkUser();
+  if (!user || user.id !== userId) return null;
+
   return db.workSpace.findFirst({
-    where: { id, userId },
+    where: { id, userId: user.id },
   });
 }

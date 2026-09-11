@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { db } from "@/lib/prisma";
 import { CREDIT_COST_PER_GENERATION } from "@/lib/constants";
+import { aj } from "@/lib/arcjet";
 import type { Message, FileData } from "@/types/workspace";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
@@ -11,6 +12,10 @@ const GEMINI_MODEL =
 
 const GEMINI_FALLBACK_MODEL =
   "gemini-3.1-flash-lite";
+
+const MAX_MESSAGES = 50;
+const MAX_MESSAGE_LENGTH = 12_000;
+const MAX_FILE_DATA_LENGTH = 500_000;
 
 const GENERATION_RESPONSE_SCHEMA = {
   type: "object",
@@ -160,6 +165,46 @@ function buildContents(messages: Message[], fileData: FileData | null) {
   });
 }
 
+function isMessage(value: unknown): value is Message {
+  if (!value || typeof value !== "object") return false;
+  const message = value as Partial<Message>;
+  return (
+    (message.role === "user" || message.role === "assistant") &&
+    typeof message.content === "string" &&
+    message.content.length <= MAX_MESSAGE_LENGTH &&
+    (message.imageUrl === undefined || typeof message.imageUrl === "string")
+  );
+}
+
+function isGenerationBody(value: unknown): value is {
+  workspaceId: string | null;
+  userId: string;
+  messages: Message[];
+  fileData: FileData | null;
+} {
+  if (!value || typeof value !== "object") return false;
+  const body = value as Partial<{
+    workspaceId: string | null;
+    userId: string;
+    messages: Message[];
+    fileData: FileData | null;
+  }>;
+
+  if (
+    (body.workspaceId !== null && typeof body.workspaceId !== "string") ||
+    typeof body.userId !== "string" ||
+    !Array.isArray(body.messages) ||
+    body.messages.length === 0 ||
+    body.messages.length > MAX_MESSAGES ||
+    !body.messages.every(isMessage) ||
+    (body.fileData !== null && typeof body.fileData !== "object")
+  ) {
+    return false;
+  }
+
+  return JSON.stringify(body.fileData ?? null).length <= MAX_FILE_DATA_LENGTH;
+}
+
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -168,41 +213,42 @@ export async function POST(request: NextRequest) {
     return Response.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
-  const { workspaceId, userId, messages, fileData } = body as {
-    workspaceId: string | null;
-    userId: string;
-    messages: Message[];
-    fileData: FileData | null;
-  };
-
-  if (!messages?.length) {
-    return Response.json({ message: "No messages provided" }, { status: 400 });
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ message: "Invalid JSON body" }, { status: 400 });
   }
+
+  if (!isGenerationBody(body)) {
+    return Response.json({ message: "Invalid request or request too large" }, { status: 400 });
+  }
+
+  const { workspaceId, userId, messages, fileData } = body;
 
   // ── Arcjet: rate limit, prompt injection, sensitive info ──────────────────
   // detectPromptInjectionMessage requires the actual user text to inspect.
+  if (process.env.ARCJET_KEY) {
+    const arcjetReq = new Request(request.url, {
+      method: request.method,
+      headers: request.headers,
+      body: JSON.stringify(body),
+    });
+    const lastUserMessage =
+      [...messages].reverse().find((message) => message.role === "user")?.content ?? "";
+    const decision = await aj.protect(arcjetReq, {
+      requested: 1,
+      userId: clerkId,
+      detectPromptInjectionMessage: lastUserMessage,
+    });
 
-  // const arcjetReq = new Request(request.url, {
-  //   method: request.method,
-  //   headers: request.headers,
-  //   body: JSON.stringify(body),
-  // });
-
-  // const lastUserMessage =
-  //   [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
-  // const decision = await aj.protect(arcjetReq, {
-  //   requested: 1,
-  //   userId: clerkId,
-  //   detectPromptInjectionMessage: lastUserMessage,
-  // });
-
-  // if (decision.isDenied()) {
-  //   return Response.json(
-  //     { message: decision.reason?.type ?? "Request blocked" },
-  //     { status: 429 }
-  //   );
-  // }
+    if (decision.isDenied()) {
+      return Response.json(
+        { message: decision.reason?.type ?? "Request blocked" },
+        { status: 429 }
+      );
+    }
+  }
 
   const user = await db.user.findUnique({
     where: { id: userId, clerkId },
@@ -346,10 +392,10 @@ export async function POST(request: NextRequest) {
           { role: "assistant", content: assistantMessage },
         ];
 
-        const [workspace] = await db.$transaction([
+        const [workspace, creditUpdate] = await db.$transaction([
           workspaceId
             ? db.workSpace.update({
-                where: { id: workspaceId, userId },
+                where: { id: workspaceId, userId: user.id },
                 data: {
                   messages: updatedMessages as never,
                   fileData: newFileData as never,
@@ -357,20 +403,26 @@ export async function POST(request: NextRequest) {
               })
             : db.workSpace.create({
                 data: {
-                  userId,
+                  userId: user.id,
                   title: aiTitle ?? lastUserMessage.content.slice(0, 80),
                   messages: updatedMessages as never,
                   fileData: newFileData as never,
                 },
               }),
-          db.user.update({
-            where: { id: userId },
+          db.user.updateMany({
+            where: { id: user.id, credits: { gte: CREDIT_COST_PER_GENERATION } },
             data: { credits: { decrement: CREDIT_COST_PER_GENERATION } },
           }),
         ]);
 
+        // The preflight balance check is only an early UX response. This
+        // conditional update is the race-safe source of truth for spending.
+        if (creditUpdate.count !== 1) {
+          throw new Error("Insufficient credits");
+        }
+
         const updatedUser = await db.user.findUnique({
-          where: { id: userId },
+          where: { id: user.id },
           select: { credits: true },
         });
 

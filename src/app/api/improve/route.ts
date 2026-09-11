@@ -3,7 +3,11 @@ import { GoogleGenAI } from "@google/genai";
 import { NextRequest } from "next/server";
 import { db } from "@/lib/prisma";
 import { CREDIT_COST_PER_GENERATION } from "@/lib/constants";
+import { aj } from "@/lib/arcjet";
 import type { FileData } from "@/types/workspace";
+
+const MAX_REQUEST_LENGTH = 12_000;
+const MAX_FILE_DATA_LENGTH = 500_000;
 
 const SYSTEM_PROMPT = `You improve existing React applications.
 Return only valid JSON with this shape:
@@ -44,19 +48,64 @@ export async function POST(request: NextRequest) {
     return Response.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await request.json()) as {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ message: "Invalid JSON body" }, { status: 400 });
+  }
+
+  if (!body || typeof body !== "object") {
+    return Response.json({ message: "Invalid request" }, { status: 400 });
+  }
+
+  const candidate = body as Partial<{
     userId: string;
     workspaceId: string;
     userRequest: string;
     fileData: FileData;
-  };
+  }>;
+  if (
+    typeof candidate.userId !== "string" ||
+    typeof candidate.workspaceId !== "string" ||
+    typeof candidate.userRequest !== "string" ||
+    candidate.userRequest.trim().length === 0 ||
+    candidate.userRequest.length > MAX_REQUEST_LENGTH ||
+    !candidate.fileData ||
+    typeof candidate.fileData !== "object" ||
+    !candidate.fileData.files ||
+    typeof candidate.fileData.files !== "object" ||
+    !candidate.fileData.dependencies ||
+    typeof candidate.fileData.dependencies !== "object" ||
+    JSON.stringify(candidate.fileData).length > MAX_FILE_DATA_LENGTH
+  ) {
+    return Response.json({ message: "Invalid request or request too large" }, { status: 400 });
+  }
 
-  if (!body.userId || !body.workspaceId || !body.userRequest || !body.fileData) {
-    return Response.json({ message: "Invalid request" }, { status: 400 });
+  const { userId, workspaceId, userRequest, fileData } = candidate;
+
+  if (process.env.ARCJET_KEY) {
+    const arcjetReq = new Request(request.url, {
+      method: request.method,
+      headers: request.headers,
+      body: JSON.stringify(body),
+    });
+    const decision = await aj.protect(arcjetReq, {
+      requested: 1,
+      userId: clerkId,
+      detectPromptInjectionMessage: userRequest,
+    });
+
+    if (decision.isDenied()) {
+      return Response.json(
+        { message: decision.reason?.type ?? "Request blocked" },
+        { status: 429 }
+      );
+    }
   }
 
   const user = await db.user.findUnique({
-    where: { id: body.userId, clerkId },
+    where: { id: userId, clerkId },
     select: { id: true, credits: true, plan: true },
   });
 
@@ -79,7 +128,7 @@ export async function POST(request: NextRequest) {
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
         const response = await ai.models.generateContent({
           model: process.env.GEMINI_MODEL ?? "gemini-3.6-flash",
-          contents: `User request:\n${body.userRequest}\n\nCurrent files:\n${JSON.stringify(body.fileData.files, null, 2)}`,
+          contents: `User request:\n${userRequest}\n\nCurrent files:\n${JSON.stringify(fileData.files, null, 2)}`,
           config: {
             systemInstruction: SYSTEM_PROMPT,
             temperature: 0.5,
@@ -97,23 +146,29 @@ export async function POST(request: NextRequest) {
 
         const newFileData: FileData = {
           files: parsed.files,
-          dependencies: body.fileData.dependencies,
-          title: body.fileData.title,
+          dependencies: fileData.dependencies,
+          title: fileData.title,
         };
 
-        await db.$transaction([
+        const [, creditUpdate] = await db.$transaction([
           db.workSpace.update({
-            where: { id: body.workspaceId, userId: body.userId },
+            where: { id: workspaceId, userId: user.id },
             data: { fileData: newFileData as never },
           }),
-          db.user.update({
-            where: { id: body.userId },
+          db.user.updateMany({
+            where: { id: user.id, credits: { gte: CREDIT_COST_PER_GENERATION } },
             data: { credits: { decrement: CREDIT_COST_PER_GENERATION } },
           }),
         ]);
 
+        // Keep the expensive AI work outside the transaction, but make the
+        // final balance check atomic so concurrent improvements cannot overspend.
+        if (creditUpdate.count !== 1) {
+          throw new Error("Insufficient credits");
+        }
+
         const updatedUser = await db.user.findUnique({
-          where: { id: body.userId },
+          where: { id: user.id },
           select: { credits: true },
         });
 

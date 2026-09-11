@@ -403,7 +403,7 @@ root.render(<React.StrictMode><App /></React.StrictMode>);`
                 {isImproving ? "Improving with Cline AI…" : currentStepLabel}
               </p>
               <p className="text-xs text-white/20">
-                This usually takes 1-2 minutes.
+                This usually takes 4-5 minutes.
               </p>
             </div>
           </div>

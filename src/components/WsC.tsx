@@ -146,12 +146,16 @@ const WorkspaceClient = ({
   const runImprove = async (userRequest: string) => {
     if (!fileData || !workspaceId) return;
     setIsImproving(true);
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       await readEvents(
         await fetch("/api/improve", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId, workspaceId, userRequest, fileData }),
+          signal: controller.signal,
         }),
         (event) => {
           if (event.type === "file_patch" && typeof event.path === "string" && typeof event.code === "string") {
@@ -172,6 +176,7 @@ const WorkspaceClient = ({
       console.error("Improve failed", error);
     } finally {
       setIsImproving(false);
+      abortControllerRef.current = null;
     }
   };
 
